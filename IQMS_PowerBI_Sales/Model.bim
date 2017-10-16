@@ -571,7 +571,7 @@
             "name": "Sales Rep",
             "dataType": "string",
             "isDataTypeInferred": true,
-            "expression": "RELATED(Employees[FIRST_NAME])& \" \" &RELATED(Employees[LAST_NAME])"
+            "expression": "RELATED(Employees[FIRST_NAME])& \" \" &RELATED(Employees[LAST_NAME]) & \" | \" &[PSDirector]"
           },
           {
             "type": "calculated",
@@ -1173,12 +1173,6 @@
           },
           {
             "type": "calculated",
-            "name": "Calculated Column 1",
-            "dataType": "int64",
-            "isDataTypeInferred": true
-          },
-          {
-            "type": "calculated",
             "name": "Upside Date",
             "dataType": "dateTime",
             "isDataTypeInferred": false,
@@ -1203,7 +1197,87 @@
             "name": "StageDuration",
             "dataType": "double",
             "isDataTypeInferred": false,
-            "expression": "[maxStageDate]-[minStageDate]"
+            "expression": "[maxStageDate]-[minStageDate]",
+            "isDefaultLabel": true
+          },
+          {
+            "type": "calculated",
+            "name": "Stage",
+            "dataType": "string",
+            "isDataTypeInferred": true,
+            "expression": "IF(ISBLANK([Stage Access Level]),\"00 - Blank\",[Stage Access Level]&\" - \"&[Sales Stage])"
+          },
+          {
+            "type": "calculated",
+            "name": "BDAAssignedStageChangeID",
+            "dataType": "double",
+            "isDataTypeInferred": true,
+            "expression": "CALCULATE(Min(StageChanges[CRM_ACTIVITY_ID]),FILTER(StageChanges,StageChanges[ACCESS_LEVEL]=10),FILTER(StageChanges,StageChanges[ID]=EARLIER(Opportunities[id])))"
+          },
+          {
+            "type": "calculated",
+            "name": "BDAStageSource",
+            "dataType": "string",
+            "isDataTypeInferred": true,
+            "expression": "LOOKUPVALUE(StageChanges[ASSIGNEDTO],StageChanges[CRM_ACTIVITY_ID],Opportunities[BDAAssignedStageChangeID])"
+          },
+          {
+            "type": "calculated",
+            "name": "BDA Source",
+            "dataType": "string",
+            "isDataTypeInferred": true,
+            "expression": "if(ISBLANK([BDAStageSource]),[CREATEDBY],[BDAStageSource])"
+          },
+          {
+            "type": "calculated",
+            "name": "EnterpriseSupportAnnualSubscription",
+            "dataType": "double",
+            "isDataTypeInferred": true,
+            "expression": " CALCULATE(SUMx(UDFS,UDFS[NUSER]),FILTER(UDFS,UDFS[UD_COLS_ID]=305),FILTER(UDFS,UDFS[PARENT_ID]=Opportunities[ID]))"
+          },
+          {
+            "type": "calculated",
+            "name": "HasEnterpriseSupport",
+            "dataType": "boolean",
+            "isDataTypeInferred": true,
+            "expression": "or(not(ISBLANK([EnterpriseSupportAnnualSubscription])),[EnterpriseSupportAnnualSubscription]>0)",
+            "formatString": "\"TRUE\";\"TRUE\";\"FALSE\""
+          },
+          {
+            "type": "calculated",
+            "name": "PSDirector",
+            "dataType": "string",
+            "isDataTypeInferred": true,
+            "expression": " CALCULATE(FIRSTNONBLANK(VALUES(UDFS[CUSER]),1),FILTER(UDFS,UDFS[UD_COLS_ID]=265),FILTER(UDFS,UDFS[PARENT_ID]=Opportunities[ID]))"
+          },
+          {
+            "type": "calculated",
+            "name": "SOWComplete",
+            "dataType": "string",
+            "isDataTypeInferred": true,
+            "expression": " CALCULATE(FIRSTNONBLANK(VALUES(UDFS[CUSER]),1),FILTER(UDFS,UDFS[UD_COLS_ID]=240),FILTER(UDFS,UDFS[PARENT_ID]=Opportunities[ID]))"
+          },
+          {
+            "type": "calculated",
+            "name": "IsSOWComplete",
+            "dataType": "boolean",
+            "isDataTypeInferred": true,
+            "expression": "UPPER(left([SOWComplete],1))=\"Y\"",
+            "formatString": "\"TRUE\";\"TRUE\";\"FALSE\""
+          },
+          {
+            "type": "calculated",
+            "name": "Qtr Closed",
+            "dataType": "int64",
+            "isDataTypeInferred": true,
+            "expression": "CEILING(MONTH(Opportunities[Actual Close Date])/3,1)"
+          },
+          {
+            "type": "calculated",
+            "name": "AEEmployeeID",
+            "dataType": "double",
+            "isDataTypeInferred": true,
+            "expression": "RELATED(Employees[ID])"
           }
         ],
         "partitions": [
@@ -1260,6 +1334,23 @@
           {
             "name": "Measure 4",
             "expression": "CALCULATE(AVERAGE(Opportunities[DaysAged]),FILTER(Opportunities,Opportunities[25]=1))"
+          },
+          {
+            "name": "BTest",
+            "expression": "CALCULATE(SUM(Opportunities[VALUE]),USERELATIONSHIP(Opportunities[Expected Close Date],Dates[Date]))",
+            "formatString": "#,0.00"
+          },
+          {
+            "name": "Measure 5",
+            "expression": "CALCULATE(CALCULATE(SUM(Opportunities[VALUE]),USERELATIONSHIP(Opportunities[Expected Close Date],Dates[Date])),FILTER(Opportunities,Opportunities[Stage Access Level]=20))"
+          },
+          {
+            "name": "Measure 6",
+            "expression": "SUMX(FILTER(Opportunities,Opportunities[Stage Access Level]=20),Opportunities[VALUE])"
+          },
+          {
+            "name": "Measure 7",
+            "expression": "CALCULATE(SUMX(FILTER(Opportunities,Opportunities[Stage Access Level]=20),Opportunities[VALUE]),USERELATIONSHIP(Opportunities[Expected Close Date],Dates[Date]))"
           }
         ],
         "annotations": [
@@ -1422,7 +1513,6 @@
       },
       {
         "name": "Territory",
-        "isHidden": true,
         "columns": [
           {
             "name": "ID",
@@ -2803,7 +2893,6 @@
           {
             "name": "TERRITORY_ID",
             "dataType": "double",
-            "isHidden": true,
             "sourceColumn": "TERRITORY_ID",
             "sourceProviderType": "Decimal"
           },
@@ -2925,6 +3014,13 @@
             "isHidden": true,
             "sourceColumn": "REV_DISC_ORDER",
             "sourceProviderType": "VarChar"
+          },
+          {
+            "type": "calculated",
+            "name": "CustomerRegion",
+            "dataType": "string",
+            "isDataTypeInferred": true,
+            "expression": "LOOKUPVALUE(Territory[REGION],Territory[ID],Customers[TERRITORY_ID])"
           }
         ],
         "partitions": [
@@ -3227,7 +3323,7 @@
             "name": "Region",
             "dataType": "string",
             "isDataTypeInferred": true,
-            "expression": "RELATED(Territory[REGION])"
+            "expression": "RELATED(Customers[CustomerRegion])"
           },
           {
             "type": "calculated",
@@ -3585,6 +3681,27 @@
             "dataType": "int64",
             "isDataTypeInferred": true,
             "expression": "CALCULATE(COUNTA([RVPID]),FILTER(Sales,Sales[RVPID]=EARLIER(Sales[RVPID])),FILTER(Sales,Sales[COMPANY]=EARLIER(Sales[COMPANY])))"
+          },
+          {
+            "type": "calculated",
+            "name": "FilterAE",
+            "dataType": "string",
+            "isDataTypeInferred": true,
+            "expression": "Sales[AE]"
+          },
+          {
+            "type": "calculated",
+            "name": "RegionByState",
+            "dataType": "string",
+            "isDataTypeInferred": true,
+            "expression": "IF(ISBLANK(LOOKUPVALUE(RegionsByState[Region],RegionsByState[State_abbr],Sales[STATE])),Sales[Region],LOOKUPVALUE(RegionsByState[Region],RegionsByState[State_abbr],Sales[STATE]))"
+          },
+          {
+            "type": "calculated",
+            "name": "DOMorINTL",
+            "dataType": "string",
+            "isDataTypeInferred": true,
+            "expression": "IF(ISBLANK(LOOKUPVALUE(RegionsByState[Region],RegionsByState[State_abbr],Sales[STATE])),Sales[Region],\"DOM\")"
           }
         ],
         "partitions": [
@@ -4186,6 +4303,87 @@
             "name": "AvgDealDaysDuration",
             "expression": "AVERAGE(StageChanges[OppDealDays])",
             "formatString": "0.00"
+          },
+          {
+            "name": "Flips",
+            "expression": "CALCULATE(sum(StageChanges[FlipsUpTo25]),USERELATIONSHIP(StageChanges[StageChangeDate],Dates[Date]))",
+            "formatString": "#,0"
+          },
+          {
+            "name": "Qualified",
+            "expression": "CALCULATE(sum(StageChanges[QualifiedUpTo30]),USERELATIONSHIP(StageChanges[StageChangeDate],Dates[Date]))",
+            "formatString": "#,0"
+          },
+          {
+            "name": "Annual Enteprise Support",
+            "expression": " CALCULATE(SUM(Opportunities[EnterpriseSupportAnnualSubscription]),USERELATIONSHIP(Opportunities[Expected Close Date],Dates[Date]))",
+            "formatString": "\\$#,0;(\\$#,0);\\$#,0",
+            "annotations": [
+              {
+                "name": "Format",
+                "value": "<Format Format=\"Currency\"><Currency LCID=\"1033\" DisplayName=\"$ English (United States)\" Symbol=\"$\" PositivePattern=\"0\" NegativePattern=\"0\" /></Format>"
+              }
+            ]
+          },
+          {
+            "name": "Sales Projected",
+            "expression": "CALCULATE(SUMX(FILTER(Opportunities,Opportunities[Stage Access Level]=30),Opportunities[VALUE]),USERELATIONSHIP(Opportunities[Expected Close Date],Dates[Date]))+CALCULATE(SUMX(FILTER(Opportunities,Opportunities[Stage Access Level]=40),Opportunities[VALUE]),USERELATIONSHIP(Opportunities[Expected Close Date],Dates[Date]))+CALCULATE(SUMX(FILTER(Opportunities,Opportunities[Stage Access Level]=50),Opportunities[VALUE]),USERELATIONSHIP(Opportunities[Expected Close Date],Dates[Date]))",
+            "formatString": "\\$#,0;(\\$#,0);\\$#,0",
+            "annotations": [
+              {
+                "name": "Format",
+                "value": "<Format Format=\"Currency\"><Currency LCID=\"1033\" DisplayName=\"$ English (United States)\" Symbol=\"$\" PositivePattern=\"0\" NegativePattern=\"0\" /></Format>"
+              }
+            ]
+          },
+          {
+            "name": "Sales Possible",
+            "expression": "CALCULATE(SUMX(FILTER(Opportunities,Opportunities[Stage Access Level]=25),Opportunities[VALUE]),USERELATIONSHIP(Opportunities[Expected Close Date],Dates[Date]))",
+            "formatString": "\\$#,0;(\\$#,0);\\$#,0",
+            "annotations": [
+              {
+                "name": "Format",
+                "value": "<Format Format=\"Currency\"><Currency LCID=\"1033\" DisplayName=\"$ English (United States)\" Symbol=\"$\" PositivePattern=\"0\" NegativePattern=\"0\" /></Format>"
+              }
+            ]
+          },
+          {
+            "name": "Sales Closed & Projected",
+            "expression": "Metrics_Sales[Revenue Full Year]+[Sales Projected]",
+            "formatString": "\\$#,0;(\\$#,0);\\$#,0",
+            "annotations": [
+              {
+                "name": "Format",
+                "value": "<Format Format=\"Currency\"><Currency LCID=\"1033\" DisplayName=\"$ English (United States)\" Symbol=\"$\" PositivePattern=\"0\" NegativePattern=\"0\" /></Format>"
+              }
+            ]
+          },
+          {
+            "name": "Sales Total",
+            "expression": "[Sales Closed & Projected]+[Sales Possible]",
+            "formatString": "\\$#,0;(\\$#,0);\\$#,0",
+            "annotations": [
+              {
+                "name": "Format",
+                "value": "<Format Format=\"Currency\"><Currency LCID=\"1033\" DisplayName=\"$ English (United States)\" Symbol=\"$\" PositivePattern=\"0\" NegativePattern=\"0\" /></Format>"
+              }
+            ]
+          },
+          {
+            "name": "Opportunity Count Possible",
+            "expression": "CALCULATE(countX(FILTER(Opportunities,Opportunities[Stage Access Level]=30),Opportunities[ID]),USERELATIONSHIP(Opportunities[Expected Close Date],Dates[Date]))+CALCULATE(countX(FILTER(Opportunities,Opportunities[Stage Access Level]=40),Opportunities[ID]),USERELATIONSHIP(Opportunities[Expected Close Date],Dates[Date]))+CALCULATE(countX(FILTER(Opportunities,Opportunities[Stage Access Level]=50),Opportunities[ID]),USERELATIONSHIP(Opportunities[Expected Close Date],Dates[Date]))",
+            "formatString": "#,0"
+          },
+          {
+            "name": "Software20Test",
+            "expression": "CALCULATE(SUM(Opportunities[VALUE]),FILTER(Opportunities,Opportunities[Stage Access Level]=25),USERELATIONSHIP(Opportunities[Expected Close Date],Dates[Date]))",
+            "formatString": "\\$#,0;(\\$#,0);\\$#,0",
+            "annotations": [
+              {
+                "name": "Format",
+                "value": "<Format Format=\"Currency\"><Currency LCID=\"1033\" DisplayName=\"$ English (United States)\" Symbol=\"$\" PositivePattern=\"0\" NegativePattern=\"0\" /></Format>"
+              }
+            ]
           }
         ],
         "annotations": [
@@ -7439,7 +7637,7 @@
                 "{\"EAST\",\"MREYNOLDS\",\"Michael L. Reynolds\"},",
                 "{\"EAST\",\"QCATE\",\"Quentin G. Cate\"},",
                 "{\"CENTRAL\",\"RCLEMENT\",\"Russell C. Clement\"},",
-                "{\"EAST\",\"SKRAISINGER\",\"Sue M. Kraisinger\"},",
+                "{\"EAST\",\"SKRAISINGER\",\"Sue M. Kraisinger\"},{\"CENTRAL\",\"GPARK\",\"Eugene Park\"},",
                 "{\"WEST\",\"GKORN\",\"George B. Korn\"},",
                 "{\"WEST\",\"MNEMMERS\",\"Mitch V. Nemmers\"},",
                 "{\"INTL\",\"ASIA\",\"INTL ASIA\"},",
@@ -8444,6 +8642,20 @@
             "sourceColumn": "SEPARATION_DATE",
             "formatString": "General Date",
             "sourceProviderType": "Date"
+          },
+          {
+            "type": "calculated",
+            "name": "FirstLastName",
+            "dataType": "string",
+            "isDataTypeInferred": true,
+            "expression": "[FIRST_NAME]&[LAST_NAME]"
+          },
+          {
+            "type": "calculated",
+            "name": "SalesPersonID",
+            "dataType": "double",
+            "isDataTypeInferred": true,
+            "expression": "LOOKUPVALUE(SalesPeople[ID],SalesPeople[FirstLastName],[FirstLastName])"
           }
         ],
         "partitions": [
@@ -8841,6 +9053,13 @@
             "dataType": "string",
             "sourceColumn": "MIDDLE_NAME",
             "sourceProviderType": "VarChar"
+          },
+          {
+            "type": "calculated",
+            "name": "FirstLastName",
+            "dataType": "string",
+            "isDataTypeInferred": true,
+            "expression": "[FIRST_NAME]&[LAST_NAME]"
           }
         ],
         "partitions": [
@@ -9499,6 +9718,41 @@
             "dataType": "double",
             "isDataTypeInferred": true,
             "expression": "RELATED(Opportunities[DurationDays])"
+          },
+          {
+            "type": "calculated",
+            "name": "Calculated Column 1",
+            "dataType": "double",
+            "isDataTypeInferred": true,
+            "expression": "CALCULATE(Min(StageChanges[CRM_ACTIVITY_ID]),FILTER(StageChanges,StageChanges[ACCESS_LEVEL]=10),FILTER(StageChanges,StageChanges[ID]=EARLIER(StageChanges[id])))"
+          },
+          {
+            "type": "calculated",
+            "name": "FlipsUpTo25",
+            "dataType": "int64",
+            "isDataTypeInferred": true,
+            "expression": "if(and(StageChanges[ACCESS_LEVEL]=25,StageChanges[PriorAccessLevel]<StageChanges[ACCESS_LEVEL]),1,0)"
+          },
+          {
+            "type": "calculated",
+            "name": "QualifiedUpTo30",
+            "dataType": "int64",
+            "isDataTypeInferred": true,
+            "expression": "if(and(StageChanges[ACCESS_LEVEL]=30,StageChanges[PriorAccessLevel]<StageChanges[ACCESS_LEVEL]),1,0)"
+          },
+          {
+            "type": "calculated",
+            "name": "StageChangeDate",
+            "dataType": "dateTime",
+            "isDataTypeInferred": false,
+            "expression": "TRUNC(StageChanges[STARTDATE])",
+            "formatString": "MM/dd/yyyy",
+            "annotations": [
+              {
+                "name": "Format",
+                "value": "<Format Format=\"DateTimeCustom\"><DateTimes><DateTime LCID=\"1033\" Group=\"ShortDate\" FormatString=\"MM/dd/yyyy\" /></DateTimes></Format>"
+              }
+            ]
           }
         ],
         "partitions": [
@@ -9902,6 +10156,34 @@
                 "value": "<Format Format=\"DateTimeShortDatePattern\" />"
               }
             ]
+          },
+          {
+            "type": "calculated",
+            "name": "CurrentQtr",
+            "dataType": "double",
+            "isDataTypeInferred": true,
+            "expression": "VALUE ( FORMAT (TODAY(), \"Q\" ) )"
+          },
+          {
+            "type": "calculated",
+            "name": "ChangeQtr",
+            "dataType": "double",
+            "isDataTypeInferred": true,
+            "expression": "VALUE ( FORMAT ([TIME_STAMP], \"Q\" ) )"
+          },
+          {
+            "type": "calculated",
+            "name": "DaysSlipped",
+            "dataType": "double",
+            "isDataTypeInferred": true,
+            "expression": "IF(OR(ISBLANK([OLD_VALUE]),ISBLANK([NEW_VALUE])),0,IFERROR([NEW_VALUE]-[OLD_VALUE],0))"
+          },
+          {
+            "type": "calculated",
+            "name": "SlipsCurrentQtr",
+            "dataType": "int64",
+            "isDataTypeInferred": true,
+            "expression": "if(and([CurrentQtr]=[ChangeQtr],[DaysSlipped]>0),1,0)"
           }
         ],
         "partitions": [
@@ -9963,6 +10245,155 @@
               "WHERE        IQMS.TR_COL.COL_NAME = IQMS.TR_VALUE.COL_NAME AND IQMS.TR_VALUE.TR_BATCH_ID = IQMS.TR_BATCH.ID AND IQMS.TR_BATCH.PARENT_ID = IQMS.CRM_OPPORTUNITY.ID AND ",
               "                         (IQMS.TR_BATCH.TABLE_NAME LIKE 'CRM_%') AND (IQMS.TR_VALUE.COL_NAME = 'DATE_CLOSED_EXPECT')",
               "ORDER BY IQMS.TR_BATCH.TIME_STAMP DESC</RSQueryCommandText><RSQueryCommandType>Text</RSQueryCommandType><RSQueryDesignState></RSQueryDesignState>]]></AnnotationContent></Gemini>"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "RegionsByState",
+        "columns": [
+          {
+            "name": "State",
+            "dataType": "string",
+            "sourceColumn": "State",
+            "sourceProviderType": "WChar"
+          },
+          {
+            "name": "State_abbr",
+            "dataType": "string",
+            "sourceColumn": "State_abbr",
+            "sourceProviderType": "WChar"
+          },
+          {
+            "name": "Region",
+            "dataType": "string",
+            "sourceColumn": "Region",
+            "sourceProviderType": "WChar"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "RegionsByState",
+            "dataView": "full",
+            "source": {
+              "query": " SELECT [dbo].[RegionsByState].* FROM [dbo].[RegionsByState] ",
+              "dataSource": "SqlServer si-sql2016 IQMS_CRM_SALE"
+            }
+          }
+        ],
+        "annotations": [
+          {
+            "name": "_TM_ExtProp_QueryDefinition",
+            "value": " SELECT [dbo].[RegionsByState].* FROM [dbo].[RegionsByState] "
+          },
+          {
+            "name": "_TM_ExtProp_DbTableName",
+            "value": "RegionsByState"
+          },
+          {
+            "name": "_TM_ExtProp_DbSchemaName",
+            "value": "dbo"
+          }
+        ]
+      },
+      {
+        "name": "EmployeeSalesPerson",
+        "columns": [
+          {
+            "name": "ID_SALESPEOPLE",
+            "dataType": "double",
+            "sourceColumn": "ID_SALESPEOPLE",
+            "sourceProviderType": "Decimal"
+          },
+          {
+            "name": "FIRST_NAME",
+            "dataType": "string",
+            "sourceColumn": "FIRST_NAME",
+            "sourceProviderType": "VarChar"
+          },
+          {
+            "name": "LAST_NAME",
+            "dataType": "string",
+            "sourceColumn": "LAST_NAME",
+            "sourceProviderType": "VarChar"
+          },
+          {
+            "name": "EMP_FIRST_NAME",
+            "dataType": "string",
+            "sourceColumn": "EMP_FIRST_NAME",
+            "sourceProviderType": "VarChar"
+          },
+          {
+            "name": "EMP_LAST_NAME",
+            "dataType": "string",
+            "sourceColumn": "EMP_LAST_NAME",
+            "sourceProviderType": "VarChar"
+          },
+          {
+            "name": "SALES_CODE",
+            "dataType": "string",
+            "sourceColumn": "SALES_CODE",
+            "sourceProviderType": "VarChar"
+          },
+          {
+            "name": "PR_EMP_ID",
+            "dataType": "double",
+            "sourceColumn": "PR_EMP_ID",
+            "sourceProviderType": "Decimal"
+          },
+          {
+            "name": "EMPNO",
+            "dataType": "string",
+            "sourceColumn": "EMPNO"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "EmployeeSalesPerson",
+            "dataView": "full",
+            "source": {
+              "query": [
+                "SELECT IQMS.SALESPEOPLE.ID AS ID_SALESPEOPLE, IQMS.SALESPEOPLE.FIRST_NAME, IQMS.SALESPEOPLE.LAST_NAME, IQMS.PR_EMP.FIRST_NAME AS EMP_FIRST_NAME, IQMS.PR_EMP.LAST_NAME AS EMP_LAST_NAME, ",
+                "                  IQMS.SALESPEOPLE.SALES_CODE, IQMS.PR_EMP.ID AS PR_EMP_ID, IQMS.PR_EMP.EMPNO",
+                "FROM     IQMS.SALESPEOPLE INNER JOIN",
+                "                  IQMS.PR_EMP ON IQMS.SALESPEOPLE.FIRST_NAME = IQMS.PR_EMP.FIRST_NAME AND IQMS.SALESPEOPLE.LAST_NAME = IQMS.PR_EMP.LAST_NAME"
+              ],
+              "dataSource": "MGMT"
+            },
+            "annotations": [
+              {
+                "name": "QueryEditorSerialization",
+                "value": [
+                  "<?xml version=\"1.0\" encoding=\"UTF-16\"?><Gemini xmlns=\"QueryEditorSerialization\"><AnnotationContent><![CDATA[<RSQueryCommandText>SELECT IQMS.SALESPEOPLE.ID AS ID_SALESPEOPLE, IQMS.SALESPEOPLE.FIRST_NAME, IQMS.SALESPEOPLE.LAST_NAME, IQMS.PR_EMP.FIRST_NAME AS EMP_FIRST_NAME, IQMS.PR_EMP.LAST_NAME AS EMP_LAST_NAME, ",
+                  "                  IQMS.SALESPEOPLE.SALES_CODE, IQMS.PR_EMP.ID AS PR_EMP_ID, IQMS.PR_EMP.EMPNO",
+                  "FROM     IQMS.SALESPEOPLE INNER JOIN",
+                  "                  IQMS.PR_EMP ON IQMS.SALESPEOPLE.FIRST_NAME = IQMS.PR_EMP.FIRST_NAME AND IQMS.SALESPEOPLE.LAST_NAME = IQMS.PR_EMP.LAST_NAME</RSQueryCommandText><RSQueryCommandType>Text</RSQueryCommandType><RSQueryDesignState></RSQueryDesignState>]]></AnnotationContent></Gemini>"
+                ]
+              }
+            ]
+          }
+        ],
+        "annotations": [
+          {
+            "name": "_TM_ExtProp_QueryDefinition",
+            "value": [
+              "SELECT IQMS.SALESPEOPLE.ID AS ID_SALESPEOPLE, IQMS.SALESPEOPLE.FIRST_NAME, IQMS.SALESPEOPLE.LAST_NAME, IQMS.PR_EMP.FIRST_NAME AS EMP_FIRST_NAME, IQMS.PR_EMP.LAST_NAME AS EMP_LAST_NAME, ",
+              "                  IQMS.SALESPEOPLE.SALES_CODE, IQMS.PR_EMP.ID AS PR_EMP_ID, IQMS.PR_EMP.EMPNO",
+              "FROM     IQMS.SALESPEOPLE INNER JOIN",
+              "                  IQMS.PR_EMP ON IQMS.SALESPEOPLE.FIRST_NAME = IQMS.PR_EMP.FIRST_NAME AND IQMS.SALESPEOPLE.LAST_NAME = IQMS.PR_EMP.LAST_NAME"
+            ]
+          },
+          {
+            "name": "_TM_ExtProp_DbTableName",
+            "value": "EmployeeSalesPerson"
+          },
+          {
+            "name": "QueryEditorSerialization",
+            "value": [
+              "<?xml version=\"1.0\" encoding=\"UTF-16\"?><Gemini xmlns=\"QueryEditorSerialization\"><AnnotationContent><![CDATA[<RSQueryCommandText>SELECT IQMS.SALESPEOPLE.ID AS ID_SALESPEOPLE, IQMS.SALESPEOPLE.FIRST_NAME, IQMS.SALESPEOPLE.LAST_NAME, IQMS.PR_EMP.FIRST_NAME AS EMP_FIRST_NAME, IQMS.PR_EMP.LAST_NAME AS EMP_LAST_NAME, ",
+              "                  IQMS.SALESPEOPLE.SALES_CODE, IQMS.PR_EMP.ID AS PR_EMP_ID, IQMS.PR_EMP.EMPNO",
+              "FROM     IQMS.SALESPEOPLE INNER JOIN",
+              "                  IQMS.PR_EMP ON IQMS.SALESPEOPLE.FIRST_NAME = IQMS.PR_EMP.FIRST_NAME AND IQMS.SALESPEOPLE.LAST_NAME = IQMS.PR_EMP.LAST_NAME</RSQueryCommandText><RSQueryCommandType>Text</RSQueryCommandType><RSQueryDesignState></RSQueryDesignState>]]></AnnotationContent></Gemini>"
             ]
           }
         ]
@@ -10031,13 +10462,6 @@
         "fromColumn": "ASSIGNEDTO",
         "toTable": "Employees",
         "toColumn": "EMPNO"
-      },
-      {
-        "name": "b7e95403-71fb-44ac-ba8c-5ae227f432d7",
-        "fromTable": "Sales",
-        "fromColumn": "TERRITORY_ID",
-        "toTable": "Territory",
-        "toColumn": "ID"
       },
       {
         "name": "073f6ba2-fc38-4440-be97-a6351db5b27f",
@@ -10154,6 +10578,28 @@
         "fromColumn": "PARENT_ID",
         "toTable": "Opportunities",
         "toColumn": "ID"
+      },
+      {
+        "name": "5ebcbe67-26ab-4180-b13b-fe250a7cc03e",
+        "fromTable": "StageChanges",
+        "fromColumn": "StageChangeDate",
+        "toTable": "Dates",
+        "toColumn": "Date",
+        "isActive": false
+      },
+      {
+        "name": "bb536c1b-9901-4d1a-bddf-f3a4b9711bc7",
+        "fromTable": "Opportunities",
+        "fromColumn": "ASSIGNEDTO",
+        "toTable": "EmployeeSalesPerson",
+        "toColumn": "EMPNO"
+      },
+      {
+        "name": "63156055-f327-410d-a08b-7735bfd09a01",
+        "fromTable": "Sales",
+        "fromColumn": "AEAssigned",
+        "toTable": "EmployeeSalesPerson",
+        "toColumn": "ID_SALESPEOPLE"
       }
     ],
     "roles": [
